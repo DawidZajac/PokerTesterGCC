@@ -1,0 +1,18 @@
+The order below must be followed to ensure proper operation of the Program
+1. Bots read the configuration file and load the game settings
+2. Bots create their own txt files in the userpath directory, as per the configuration file. (name of file is now bot identifier)
+3. The Bots await for the tester to begin- this will happen when data is written to their txt files
+4. The tester is then started.
+5. Tester waits for user to input the path to the configuration file( The default path "./simulationFiles/config/config.txt" is selected if user presses the return key)
+6. The tester loads the configuration, and initializes its data structure, loading in the player files
+7. The tester waits for the user to initialize the simulation, by pressing any key
+8. Tester writes the card data into the Bot's txt files, and writes the state of the game to the appropriate PlayAreaFile ( First play area file is odd, and it switches between odd and even every new hand)
+9. The tester than awaits for the bots, in order, to write their decision to their txt file (f for fold, c for check/call, r for raise)
+10. Tester checks if decision was legal, and writes the outcome to the playArea file (no response within time limit = auto fold)
+11. The time limit is as set in the configuration file, with each decision having incrementally more time allocated (pre-flop=1/4 of the time, post flop 1/2 etc)
+12. After the betting round, the board cards are revealed (3 for flop, 1 for each turn and river) and announced in the playArea file
+13. Steps 9-12 are repeated for all stages of the game
+14. If the game goes to Showdown, the result is declared in the PlayArea file
+15. The Tester prepares to write to the other PlayAreaFile
+16. The player Pots are backed up every so often, as specified by the configuration file
+17. Steps 8-16 repeat until the end of the simulation.

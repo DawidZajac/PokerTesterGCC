@@ -1,0 +1,17 @@
+Current Hand:10
+bot3 sits at position 1 [BUTTON]
+bot2 sits at position 2
+bot4 sits at position 3
+bot1 sits at position 4
+All players post an ante of 1
+bot2 posts the small blind: 4
+bot4 posts the big blind: 8
+bot1 made no decision- Auto fold 
+bot3 made no decision- Auto fold 
+bot2 made no decision- Auto fold 
+bot4 won 16, all other players folded 
+Board cards: [40, 13, 43, 12, 46]
+bot3 had cards [31, 44]
+bot2 had cards [2, 48]
+bot4 had cards [4, 3]
+bot1 had cards [7, 42]

@@ -1,0 +1,4 @@
+To Compile the Code, run the following from the source folder:
+(This project uses this custom MinGW distribution (Version 15.3), which includes the boost library, and can be found here: https://nuwen.net/mingw.html)
+(The below compile statement assumes that the above distribution is located on C:, needs to be adjusted if your one is installed somewhere else)
+g++ -w PokerTesterProject.cpp ./PokerLibrary/omp/HandEvaluator.h ./PokerLibrary/omp/HandEvaluator.cpp -o PokerTesterExecutible  -LC/MinGW/lib -lboost_filesystem -lboost_system
