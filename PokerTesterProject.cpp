@@ -446,13 +446,14 @@ int main()
 	//userpath for the playArea file (odd) - should be loaded from a file
 	static std::string playAreaPathOdd;
 
-
+	//number tracking the cumulative bets over the duration of a hand
+	int totalBets= 0;
 	//userpath for the folder with bot .txt files- should be loaded from a file
 	static std::string userPath;
 	//maximum amount of raises loaded from config file
 	static int maxRaises;
 	//ante, called from file
-	static int ante ;
+	static int ante;
 	//small blind, called from file
 	static int smallBlind;
 	//big blind, called from file
@@ -556,6 +557,10 @@ int main()
 		//create the read only files
 		createReadOnlyFile(playAreaPathOdd);
 		createReadOnlyFile(playAreaPathEven);
+		
+		//clear files by writing nothing to them, in case of previous simulation leaving leftover information in files
+		writeToReadOnlyFile(playAreaPathOdd, "");
+		writeToReadOnlyFile(playAreaPathEven, "");
 
 		//Magic numbers, constants, etc
 		//number of cards that are the board (community cards)
@@ -618,7 +623,7 @@ int main()
 		{
 			//add players to the queue
 			std::string playerName = nameFromPath(playerFiles, i);
-			auto q = std::make_tuple(playerName, -1, -1,ante,'p');
+			auto q = std::make_tuple(playerName, -1, -1,0,'p');
 			//add players to the Score vector
 			score.push_back(std::pair<std::string,double> (playerName, 0.0));
 			playerQueue.push(q);
@@ -774,14 +779,16 @@ int main()
 			//begin new thread for hand evaluation
 			auto future = std::async(evaluatePlayerHands, boardCards, cards, playerCopy);
 
-			//integer that will keep track of the bets throughout the game- starts at one as all players bet ante at the start of the game
-			int currentBet = ante;
-			//this is the Pot contribution from players who folded
-			int foldPot = 0;
+			//integer that will keep track of the bets throughout the game
+			int currentBet =0;
+			//this is the Pot contribution from players who folded - includes the ante of all players
+			int foldPot = ante*players;
 			//loop for the betting structure- break; can be used to exit it prematurely, eg. everyone but 1 person folds
 			for (int currentState = 0; currentState < 4; currentState++) {
+				
+				
 				//small blind rules in first 2 betting rounds, big blind in the other 2 rounds- default is small blind
-				if (currentState % 2 == 1)
+				if (currentState > 1)
 				{
 					currentBlind = bigBlind;
 				}
@@ -889,7 +896,7 @@ int main()
 				//all other players folded
 				if (bettingQueue.size() == 1)
 				{
-
+					///NEED TO EDIT
 					std::cout << std::get<0>(bettingQueue.front()) << " won " << std::to_string(foldPot + std::get<3>(bettingQueue.front())) << std::endl;
 					
 					//update players running total - deduct their current bet from their running total
@@ -939,6 +946,7 @@ int main()
 						else {
 							appendToReadOnlyFile(playAreaPathOdd, ("*** FLOP *** [" + std::to_string(cards[0]) + " " + std::to_string(cards[1]) + " " + std::to_string(cards[2]) + "]" + "\r\n"));
 						}
+						
 						break;
 						//case 1 is pre-turn- show turn at the end of the pre-turn phase
 					case 1:
@@ -951,6 +959,7 @@ int main()
 
 							appendToReadOnlyFile(playAreaPathOdd, ("*** TURN *** [" + std::to_string(cards[0]) + " " + std::to_string(cards[1]) + " " + std::to_string(cards[2]) + " " + std::to_string(cards[3]) + "]" + "\r\n"));
 						}
+						
 						break;
 						//case 2 is pre-river - show  river at the end of the pre-river phase
 					case 2:
@@ -963,6 +972,7 @@ int main()
 
 							appendToReadOnlyFile(playAreaPathOdd, ("*** RIVER ***[" + std::to_string(cards[0]) + " " + std::to_string(cards[1]) + " " + std::to_string(cards[2]) + " " + std::to_string(cards[3]) + " " + std::to_string(cards[4]) + "]" + "\r\n"));
 						}
+						
 						break;
 						//case 3 is post-river- declare showdown
 					case 3:
@@ -974,14 +984,17 @@ int main()
 						else {
 							appendToReadOnlyFile(playAreaPathOdd, "*** SHOWDOWN *** \r\n");
 						}
+						
 						break;
 
 
 					}
 					//debugging- showing the ante
-					std::cout << currentBet - ante<< " This is the bet the betting round ended with" << std::endl;
+					std::cout << currentBet<< " This is the bet the betting round ended with" << std::endl;
 					//debugging- showing the pot at the end of the round
 					std::cout << currentBet*bettingQueue.size() + foldPot << " This is the current pot at end of the betting round" << std::endl;
+					//save the rounds bets into the foldpot
+					foldPot+=currentBet*bettingQueue.size();
 
 
 
@@ -1001,6 +1014,15 @@ int main()
 						goto jump;
 					}
 					//move on to the next betting round
+					//save current bet to the total bets - used for net gain at the end of the game
+					totalBets+= currentBet;
+					//reset the player bet
+					currentBet=0;
+					for(int l=0;l<bettingQueue.size();l++){
+					std::get<3>(bettingQueue.front())=0;
+					bettingQueue.push(bettingQueue.front());
+					bettingQueue.pop();
+					}
 					continue;
 
 
@@ -1016,6 +1038,7 @@ int main()
 				//if there are still players playing and the current one has not timed out
 				while (!bettingQueue.empty() && clock() < endwait) {
 					//read the decision of the user
+					
 					decision = readFromFile(userPath + "/" + std::get<0>(bettingQueue.front()) + ".txt");
 					//converting the decision to a char- ensure that the file contains a single character, or that your decision is the first character in the file
 					char *i = &decision[0u];
@@ -1042,7 +1065,8 @@ int main()
 							if (pClass1 == std::get<0>(bettingQueue.front()))
 							{
 								auto pClass2 = it->second;
-								it->second = pClass2 - std::get<3>(bettingQueue.front());
+								
+								it->second = pClass2 - std::get<3>(bettingQueue.front()) -totalBets-ante;-totalBets-ante;
 								std::cout << pClass1 << " total " << it->second << std::endl;
 								break;
 							}
@@ -1081,10 +1105,10 @@ int main()
 							currentBet += currentBlind;
 							//if current iteration is even, write to even, else write to odd
 							if (monteCarloState % 2 == 0) {
-								appendToReadOnlyFile(playAreaPathEven, (std::get<0>(bettingQueue.front()) + " raised: " + std::to_string(currentBlind) + ", to: " + std::to_string(currentBet - ante) + "\r\n"));
+								appendToReadOnlyFile(playAreaPathEven, (std::get<0>(bettingQueue.front()) + " raised: " + std::to_string(currentBlind) + ", to: " + std::to_string(currentBet) + "\r\n"));
 							}
 							else {
-								appendToReadOnlyFile(playAreaPathOdd, (std::get<0>(bettingQueue.front()) + " raised: " + std::to_string(currentBlind) + ", to: " + std::to_string(currentBet - ante) + "\r\n"));
+								appendToReadOnlyFile(playAreaPathOdd, (std::get<0>(bettingQueue.front()) + " raised: " + std::to_string(currentBlind) + ", to: " + std::to_string(currentBet) + "\r\n"));
 							}
 							//update the players bet
 							std::get<3>(bettingQueue.front()) = currentBet;
@@ -1123,7 +1147,7 @@ int main()
 								if (pClass1 == std::get<0>(bettingQueue.front()))
 								{
 									auto pClass2 = it->second;
-									it->second = pClass2 - std::get<3>(bettingQueue.front());
+									it->second = pClass2- std::get<3>(bettingQueue.front()) -totalBets-ante;
 									std::cout << pClass1 << " total " << it->second << std::endl;
 									break;
 								}
@@ -1147,13 +1171,13 @@ int main()
 					//the player checked/called
 					case 'c':
 						//player needs to call to stay in the game if their bet is less than current, higher bet
-						if (std::get<3>(bettingQueue.front()) < currentBet) {
+						if ((currentBet - std::get<3>(bettingQueue.front()))!=0) {
 							//if current iteration is even, write to even, else write to odd
 							if (monteCarloState % 2 == 0) {
-								appendToReadOnlyFile(playAreaPathEven, (std::get<0>(bettingQueue.front()) + " called: " + std::to_string(currentBet - std::get<3>(bettingQueue.front())) + ", to: " + std::to_string(currentBet - ante) + "\r\n"));
+								appendToReadOnlyFile(playAreaPathEven, (std::get<0>(bettingQueue.front()) + " called: " + std::to_string(currentBet - std::get<3>(bettingQueue.front())) + ", to: " + std::to_string(currentBet) + "\r\n"));
 							}
 							else {
-								appendToReadOnlyFile(playAreaPathOdd, (std::get<0>(bettingQueue.front()) + " called: " + std::to_string(currentBet - std::get<3>(bettingQueue.front())) + ", to: " + std::to_string(currentBet - ante) + "\r\n"));
+								appendToReadOnlyFile(playAreaPathOdd, (std::get<0>(bettingQueue.front()) + " called: " + std::to_string(currentBet - std::get<3>(bettingQueue.front())) + ", to: " + std::to_string(currentBet) + "\r\n"));
 							}
 							std::get<3>(bettingQueue.front()) = currentBet;
 							std::cout << std::get<0>(bettingQueue.front()) << " called" << std::endl;
@@ -1215,7 +1239,7 @@ int main()
 						if (pClass1 == std::get<0>(bettingQueue.front()))
 						{
 							auto pClass2 = it->second;
-							it->second = pClass2 - std::get<3>(bettingQueue.front());
+							it->second = pClass2-std::get<3>(bettingQueue.front()) -totalBets-ante;
 							std::cout << pClass1 << " total " << it->second << std::endl;
 							break;
 						}
@@ -1283,17 +1307,27 @@ int main()
 						appendToReadOnlyFile(playAreaPathOdd, (winner[0] + " won \r\n"));
 					}
 					std::cout << "Winner is " << winner[0] << std::endl;
-					//update players running total - deduct their current bet from their running total
+					//update players running total 
 					for (auto it = score.begin(); it != score.end(); it++)
 					{
 						// To get hold of the class pointers:
 						auto pClass1 = it->first;
+						//if the current player is the winner, allocate winnings
 						if (pClass1 == winner[0])
 						{
 							auto pClass2 = it->second;
-							it->second = pClass2 + foldPot + (currentBet * (bettingQueue.size() - 1));
-							std::cout << pClass1 << " total " << it->second << std::endl;
-							break;
+
+							it->second = pClass2 + foldPot  - totalBets - currentBet - ante;
+							std::cout << pClass1 << " total " << it->second <<std::endl;
+//							<< " Current Bet : "<<currentBet <<" total Bets" << totalBets <<std::endl;
+							
+						}
+						//- deduct their total bet from their running total
+						else
+						{	
+							
+							auto pClass2 = it->second;
+							it->second = pClass2 - currentBet-totalBets-ante;
 						}
 					}
 
@@ -1315,12 +1349,16 @@ int main()
 							winners += winner[w];
 						}
 					}
+					
+					std::vector<std::pair<std::string, double>> scoreCopy=score;
+					
 					//allocate winnings
-					double splitWinnings = (foldPot + (currentBet * (bettingQueue.size()) - winner.size())) / winner.size();
+					//double splitWinnings = (foldPot + (currentBet * (bettingQueue.size()) - winner.size())) / winner.size();
+					double splitWinnings= (foldPot -(currentBet* winner.size()) - (winner.size() * totalBets) - (winner.size() * ante))/winner.size();
 
 					for (int a = 0; a < winner.size(); a++) {
 						//update players running total - deduct their current bet from their running total
-						for (auto it = score.begin(); it != score.end(); it++)
+						for (auto it = scoreCopy.begin(); it != scoreCopy.end(); it++)
 						{
 							// To get hold of the class pointers:
 							auto pClass1 = it->first;
@@ -1329,10 +1367,22 @@ int main()
 								auto pClass2 = it->second;
 								it->second = pClass2 + splitWinnings;
 								std::cout << pClass1 << " total " << it->second << std::endl;
+								scoreCopy.erase(it);
 								break;
 							}
 						}
 					}
+					//deduct the losers bets from their totals
+					for (auto it = scoreCopy.begin(); it != scoreCopy.end(); it++)
+						{
+							// To get hold of the class pointers:
+							auto pClass1 = it->first;
+							auto pClass2 = it->second;
+							it->second = pClass2 - currentBet-totalBets-ante;
+						}
+					
+					
+					
 					for (int winners = 0; winners < winner.size(); winners++) {
 					//if current iteration is even, write to even, else write to odd
 						if (monteCarloState % 2 == 0) {
