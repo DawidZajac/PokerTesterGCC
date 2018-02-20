@@ -908,7 +908,7 @@ int main()
 						{
 							auto pClass2 = it->second;
 							//how much the player won = the amount the players who folded bet. Do not include their own contribution to the pot, as it has not been taken away from their running total
-							it->second = pClass2 + foldPot;
+							it->second = pClass2 + foldPot - ante;
 							std::cout << pClass1 << " total " << it->second << std::endl;
 							break;
 						}
@@ -1066,7 +1066,7 @@ int main()
 							{
 								auto pClass2 = it->second;
 								
-								it->second = pClass2 - std::get<3>(bettingQueue.front()) -totalBets-ante;-totalBets-ante;
+								it->second = pClass2 - std::get<3>(bettingQueue.front()) -totalBets-ante;
 								std::cout << pClass1 << " total " << it->second << std::endl;
 								break;
 							}
